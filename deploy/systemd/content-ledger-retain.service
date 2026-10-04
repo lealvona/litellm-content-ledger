@@ -1,0 +1,7 @@
+[Unit]
+Description=content-ledger: apply retention (age, then size) and log deletions
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/content-ledger retain --apply
+SyslogIdentifier=content-ledger-retain

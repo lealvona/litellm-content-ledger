@@ -1,0 +1,8 @@
+[Unit]
+Description=content-ledger: redact, compress and store closed spool hours
+
+[Service]
+Type=oneshot
+# Adjust if content-ledger is installed elsewhere (pipx and pip --user put it in ~/.local/bin).
+ExecStart=%h/.local/bin/content-ledger ship
+SyslogIdentifier=content-ledger-ship

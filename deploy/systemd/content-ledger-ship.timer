@@ -1,0 +1,9 @@
+[Unit]
+Description=content-ledger: ship hourly, after the default 10-minute grace
+
+[Timer]
+OnCalendar=*-*-* *:15:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

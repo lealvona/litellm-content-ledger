@@ -1,0 +1,55 @@
+# content-ledger profile. Default location: ~/.config/content-ledger/profile.toml
+# (or $CONTENT_LEDGER_PROFILE, or --profile PATH). Keys ending in _env name an environment variable that holds
+# the value, so secrets never sit in this file.
+
+[ledger]
+spool = "~/.local/state/content-ledger/spool"   # must match CONTENT_LEDGER_SPOOL given to the proxy, if set
+spool_cap = "1GiB"                               # health warns at 80 %, the proxy drops records at 100 %
+ship_grace_minutes = 10                          # wait this long after an hour ends before shipping it
+
+[store]
+type = "local"                                   # "local" (a directory or mounted share) or "ssh"
+path = "/srv/content-ledger"
+# type = "ssh"
+# host = "ledger@storage.example"                # key-based ssh; rsync and sha256sum on the far end
+# path = "/srv/content-ledger"
+# read_root = "/mnt/content-ledger"              # local mount of the same directory, for fcl (optional)
+
+[retention]
+max_age_days = 180
+max_bytes = "10GiB"
+
+[compress]
+level = 19                                       # zstd level; zstd = "/path/to/zstd" if not on PATH
+
+[redaction]
+builtin = true                                   # the built-in secret formats (see docs/design.md)
+# [[redaction.rules]]                            # your own formats; each match becomes [REDACTED:<name>]
+# name = "employee_id"
+# pattern = '\bEMP-\d{6}\b'
+
+[notify_settings]
+min_severity = "warning"                         # info | warning | critical
+
+[[notify]]
+type = "stderr"                                  # shows up in the systemd journal of the timer that ran it
+
+# [[notify]]
+# type = "webhook"
+# url_env = "CONTENT_LEDGER_ALERT_URL"           # receives {"kind","severity","summary","attrs"} as JSON
+
+# [[export]]
+# type = "victorialogs"
+# url = "http://victorialogs.example:9428"
+
+# [[export]]
+# type = "jsonl"
+# path = "/tmp/ledger-export.jsonl"              # "-" for stdout
+
+# [[import]]
+# type = "jsonl"
+# path = "/path/to/other-ledger-export.jsonl.zst"
+
+[plugins]
+allow = false                                    # third-party exporters/importers/notifiers; see docs/plugins.md
+# paths = ["~/.config/content-ledger/plugins"]

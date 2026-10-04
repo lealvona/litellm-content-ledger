@@ -1,0 +1,7 @@
+[Unit]
+Description=content-ledger: check drops, spool size and shipping; notify
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/content-ledger health
+SyslogIdentifier=content-ledger-health

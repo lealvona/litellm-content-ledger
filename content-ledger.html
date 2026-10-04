@@ -1,0 +1,618 @@
+<title>The Content Ledger</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: a flight-recorder briefing. One reading column, wide figures that break out of it,
+   a sticky section rail. Recorder orange marks the ledger itself; blue marks measured ledger data. */
+:root {
+  --bg: #f4f6f9;
+  --surface: #ffffff;
+  --sunk: #e9edf2;
+  --ink: #142030;
+  --muted: #566476;
+  --line: #d6dce4;
+  --accent: #c94a06;
+  --accent-soft: #fbe5d6;
+  --ledger: #2355c4;
+  --base: #8a96a6;
+  --good: #1d7448;
+  --bad: #b3261e;
+  --display: "Archivo", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
+  --body: "IBM Plex Sans", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0d131a; --surface: #141c26; --sunk: #0a0f15; --ink: #e4e9ef; --muted: #93a1b2; --line: #243142;
+    --accent: #ff7a2f; --accent-soft: #3a2010; --ledger: #7aa2ff; --base: #6c7889; --good: #4cc488; --bad: #ff6b60;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0d131a; --surface: #141c26; --sunk: #0a0f15; --ink: #e4e9ef; --muted: #93a1b2; --line: #243142;
+  --accent: #ff7a2f; --accent-soft: #3a2010; --ledger: #7aa2ff; --base: #6c7889; --good: #4cc488; --bad: #ff6b60;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 16px; line-height: 1.6;
+  padding-inline: 16px; padding-block: 0 64px;
+}
+.wrap { max-width: 1080px; margin: 0 auto; }
+.col { max-width: 68ch; }
+h1, h2, h3 { font-family: var(--display); text-wrap: balance; line-height: 1.08; margin: 0; }
+h2 { font-size: clamp(28px, 4vw, 40px); font-weight: 750; font-stretch: 82%; letter-spacing: -0.01em; }
+h3 { font-size: 19px; font-weight: 700; font-stretch: 90%; }
+p { margin: 0; }
+.eyebrow {
+  font-family: var(--mono); font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent);
+}
+.muted { color: var(--muted); }
+code, .mono { font-family: var(--mono); font-size: 0.9em; }
+code { background: var(--sunk); padding: 1px 5px; border-radius: 4px; }
+a { color: var(--ledger); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* rail */
+.rail {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg);
+  border-bottom: 1px solid var(--line); margin-inline: -16px; padding: 10px 16px;
+}
+.rail .wrap { display: flex; gap: 18px; align-items: center; overflow-x: auto; scrollbar-width: none; }
+.rail .mark { font-family: var(--display); font-weight: 800; font-stretch: 75%; font-size: 17px; white-space: nowrap; }
+.rail .mark span { color: var(--accent); }
+.rail a {
+  font-family: var(--mono); font-size: 12px; color: var(--muted); text-decoration: none; white-space: nowrap;
+  padding: 4px 0; border-bottom: 2px solid transparent;
+}
+.rail a:hover, .rail a.on { color: var(--ink); border-color: var(--accent); }
+
+section { padding-block: 56px 8px; display: grid; gap: 20px; scroll-margin-top: 56px; }
+
+/* hero */
+.hero { padding-block: 48px 16px; display: grid; gap: 22px; }
+.hero h1 { font-size: clamp(40px, 7.4vw, 84px); font-weight: 800; font-stretch: 72%; letter-spacing: -0.015em; }
+.hero h1 em { font-style: normal; color: var(--accent); }
+.hero .lede { font-size: 19px; max-width: 60ch; }
+.status {
+  display: inline-flex; gap: 8px; align-items: center; font-family: var(--mono); font-size: 13px;
+  border: 1px solid var(--line); background: var(--surface); padding: 6px 10px; border-radius: 999px; width: fit-content;
+}
+.dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 0 var(--accent); }
+.anim .dot { animation: pulse 2.2s infinite; }
+@keyframes pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 60%, transparent); } 70% { box-shadow: 0 0 0 10px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
+
+/* incident recorder */
+.recorder {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 20px;
+  display: grid; gap: 16px;
+}
+.rec-head { display: flex; flex-wrap: wrap; gap: 10px 24px; justify-content: space-between; align-items: baseline; }
+.rec-head .id { font-family: var(--mono); font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
+.track { position: relative; height: 44px; background: var(--sunk); border-radius: 6px; overflow: hidden; }
+.track .fill { position: absolute; inset: 0 auto 0 0; width: 100%; background: linear-gradient(90deg, color-mix(in srgb, var(--ledger) 25%, transparent), color-mix(in srgb, var(--ledger) 55%, transparent)); }
+.track .lbl { position: absolute; top: 50%; transform: translateY(-50%); font-family: var(--mono); font-size: 12px; padding-inline: 10px; }
+.track .l { left: 0; } .track .r { right: 0; }
+.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.fact { display: grid; gap: 2px; }
+.fact b { font-family: var(--display); font-stretch: 85%; font-size: 26px; font-variant-numeric: tabular-nums; }
+.fact span { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+.compare { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
+.pane { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; min-width: 0; }
+.pane h4 { margin: 0; font-family: var(--mono); font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; padding: 8px 12px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; gap: 8px; }
+.pane.then h4 { color: var(--bad); }
+.pane.now h4 { color: var(--good); }
+.pane pre { margin: 0; padding: 12px; font-family: var(--mono); font-size: 12.5px; line-height: 1.55; overflow-x: auto; background: var(--sunk); min-height: 200px; white-space: pre; }
+.pane pre .k { color: var(--muted); }
+.pane pre .s { color: var(--ledger); }
+.pane pre .x { color: var(--bad); font-weight: 600; }
+.stamp {
+  display: inline-block; font-family: var(--display); font-stretch: 70%; font-weight: 800; font-size: 13px; letter-spacing: 0.08em;
+  color: var(--bad); border: 2px solid var(--bad); padding: 1px 8px; border-radius: 4px; transform: rotate(-3deg);
+}
+.btn {
+  font: 600 14px var(--body); color: var(--accent); background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  border-radius: 6px; padding: 8px 14px; cursor: pointer;
+}
+.btn:hover { background: color-mix(in srgb, var(--accent) 22%, var(--surface)); }
+
+/* figures */
+.figure { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: grid; gap: 12px; min-width: 0; }
+.figure .scroll { overflow-x: auto; }
+.figure figcaption { font-size: 14px; color: var(--muted); max-width: 80ch; }
+svg text { font-family: var(--mono); }
+.flow-line { fill: none; stroke: var(--line); stroke-width: 2; }
+.flow-hot { fill: none; stroke: var(--accent); stroke-width: 2; stroke-dasharray: 5 6; }
+.anim .flow-hot { animation: dash 1.6s linear infinite; }
+@keyframes dash { to { stroke-dashoffset: -22; } }
+.node rect { fill: var(--surface); stroke: var(--line); stroke-width: 1.5; }
+.node.ledger rect { stroke: var(--accent); stroke-width: 2; }
+.node.store rect { fill: var(--sunk); }
+.node text.t { fill: var(--ink); font-size: 13px; font-weight: 600; font-family: var(--body); }
+.node text.s { fill: var(--muted); font-size: 10.5px; }
+.node { cursor: pointer; }
+.node:hover rect, .node.sel rect { stroke: var(--accent); }
+.zone { fill: none; stroke: var(--line); stroke-dasharray: 3 4; }
+.zone-l { fill: var(--muted); font-size: 11px; letter-spacing: 0.08em; }
+.packet { fill: var(--ledger); }
+.packet.c { fill: var(--accent); }
+.detail { border-left: 3px solid var(--accent); padding: 4px 0 4px 14px; min-height: 76px; display: grid; gap: 4px; }
+.detail h3 { font-size: 17px; }
+
+/* guarantees */
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
+.g { display: grid; grid-template-columns: 28px 1fr; gap: 4px 12px; align-items: start; padding: 14px 0; border-top: 1px solid var(--line); }
+.g svg { grid-row: span 2; margin-top: 2px; }
+.g b { font-weight: 600; }
+.g p { font-size: 15px; color: var(--muted); }
+.check { fill: none; stroke: var(--good); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.ring { fill: none; stroke: color-mix(in srgb, var(--good) 35%, transparent); stroke-width: 1.5; }
+
+/* chart controls */
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; width: fit-content; flex-wrap: wrap; }
+.seg button { font: 500 13px var(--body); background: var(--surface); color: var(--muted); border: 0; padding: 7px 12px; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-family: var(--mono); font-size: 12px; color: var(--muted); }
+.legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+.bar { transition: y 0.6s cubic-bezier(.2,.8,.2,1), height 0.6s cubic-bezier(.2,.8,.2,1); }
+.axis { stroke: var(--line); }
+.axis-zero { stroke: var(--muted); }
+.tick { fill: var(--muted); font-size: 11px; }
+.val { fill: var(--ink); font-size: 11px; font-variant-numeric: tabular-nums; }
+.cat { fill: var(--ink); font-size: 12px; font-family: var(--body); font-weight: 600; }
+
+.steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.step { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 12px; display: grid; gap: 4px; }
+.step b { font-family: var(--display); font-stretch: 85%; font-size: 28px; font-variant-numeric: tabular-nums; }
+.step span { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+.meter { height: 6px; background: var(--sunk); border-radius: 3px; overflow: hidden; }
+.meter i { display: block; height: 100%; background: var(--ledger); width: 0; transition: width 1.2s ease-out; }
+
+/* timeline of runs */
+.runs { display: grid; gap: 0; }
+.run { display: grid; grid-template-columns: 74px 1fr; gap: 14px; padding: 14px 0; border-top: 1px solid var(--line); }
+.run .n { font-family: var(--mono); font-size: 12px; color: var(--muted); padding-top: 3px; }
+.run .v { display: grid; gap: 4px; min-width: 0; }
+.chip { font-family: var(--mono); font-size: 11px; padding: 2px 8px; border-radius: 999px; width: fit-content; border: 1px solid; }
+.chip.bad { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 45%, transparent); }
+.chip.good { color: var(--good); border-color: color-mix(in srgb, var(--good) 45%, transparent); }
+.chip.void { color: var(--muted); border-color: var(--line); }
+
+/* storage gauge */
+.gauge { display: grid; gap: 8px; }
+.gtrack { position: relative; height: 34px; background: var(--sunk); border-radius: 6px; overflow: hidden; }
+.gfill { position: absolute; inset: 0 auto 0 0; background: var(--ledger); width: 0; transition: width 1.4s ease-out; }
+.gfill.alt { background: color-mix(in srgb, var(--ledger) 40%, transparent); }
+.gcap { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--accent); }
+.gscale { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 11px; color: var(--muted); }
+
+.table-wrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-weight: 500; }
+td.num { font-variant-numeric: tabular-nums; font-family: var(--mono); font-size: 13px; }
+
+.next { background: var(--surface); border: 1px solid var(--accent); border-radius: 10px; padding: 20px; display: grid; gap: 12px; }
+ol.roll { margin: 0; padding-left: 22px; display: grid; gap: 6px; }
+
+footer { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--line); font-family: var(--mono); font-size: 12px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 8px 20px; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+</style>
+
+<nav class="rail" aria-label="Sections">
+  <div class="wrap">
+    <span class="mark">CONTENT <span>LEDGER</span></span>
+    <a href="#incident">Incident</a>
+    <a href="#design">How it works</a>
+    <a href="#latency">Latency</a>
+    <a href="#runs">How we got here</a>
+    <a href="#storage">Storage</a>
+    <a href="#safety">Guarantees</a>
+    <a href="#next">Next</a>
+  </div>
+</nav>
+
+<div class="wrap">
+
+  <header class="hero">
+    <span class="eyebrow">litellm-content-ledger · for LiteLLM proxy operators</span>
+    <h1>A flight recorder for <em>every model call</em> through your proxy.</h1>
+    <p class="lede">When an agent receives something strange, we should be able to read exactly what the provider sent. The content ledger keeps the full request and response of every proxy call, off the request path, redacted, compressed and kept for as long as your retention policy says.</p>
+    <span class="status"><i class="dot"></i>MIT licensed · measured on LiteLLM 1.92.0</span>
+  </header>
+
+  <!-- INCIDENT -->
+  <section id="incident">
+    <span class="eyebrow">Why this exists</span>
+    <h2>One call, 19,900 characters nobody could explain</h2>
+    <div class="col"><p>An agent received a reply full of looping text, a garbled hostname and a fake "out-of-band user message". The agent's own safety check blocked it and the agent stopped. When we went to the proxy to check what the provider actually returned, the proxy had kept the timing and the token count. It had not kept a single word.</p></div>
+    <div class="recorder">
+      <div class="rec-head">
+        <h3>The call, as the proxy recorded it</h3>
+        <span class="id">one real call, before the ledger existed</span>
+      </div>
+      <div class="track" aria-label="Call duration 25.6 seconds">
+        <div class="fill" id="trackFill"></div>
+        <span class="lbl l">+0.000 s</span>
+        <span class="lbl r">+25.641 s</span>
+      </div>
+      <div class="facts">
+        <div class="fact"><b data-count="36842">36,842</b><span>tokens in</span></div>
+        <div class="fact"><b data-count="997">997</b><span>tokens out</span></div>
+        <div class="fact"><b>cloud model</b><span>via a router</span></div>
+        <div class="fact"><b>0</b><span>bytes of content kept</span></div>
+      </div>
+      <div class="compare">
+        <div class="pane then">
+          <h4><span>Then · LiteLLM_SpendLogs</span><span class="stamp">NO CONTENT</span></h4>
+<pre><span class="k">"request_id"</span>: <span class="s">"…"</span>,
+<span class="k">"model"</span>: <span class="s">"openai/…"</span>,
+<span class="k">"prompt_tokens"</span>: 36842,
+<span class="k">"completion_tokens"</span>: 997,
+<span class="k">"status"</span>: <span class="s">"success"</span>,
+<span class="k">"messages"</span>: <span class="x">{}</span>,
+<span class="k">"response"</span>: <span class="x">{}</span>,
+<span class="k">"proxy_server_request"</span>: <span class="x">null</span></pre>
+        </div>
+        <div class="pane now">
+          <h4><span>With the ledger · fcl get</span><span id="replayState">ready</span></h4>
+<pre id="replayOut"><span class="k">$ fcl get &lt;call id&gt;</span>
+<span class="k">"call_id"</span>: <span class="s">"11111111-2222-…"</span>,
+<span class="k">"model_group"</span>: <span class="s">"router"</span>,
+<span class="k">"caller"</span>: {<span class="k">"key_alias"</span>: <span class="s">"agent-key"</span>},
+<span class="k">"messages"</span>: [ <span class="muted">36,842 tokens, every turn</span> ],
+<span class="k">"response"</span>: { <span class="k">"tool_calls"</span>: [{ <span class="k">"name"</span>: <span class="s">"terminal"</span>,
+  <span class="k">"arguments"</span>: <span class="s">"curl https://…"</span> }] }</pre>
+        </div>
+      </div>
+      <div><button class="btn" id="replayBtn" type="button">Replay the lookup</button></div>
+      <p class="muted" style="font-size:14px">The right-hand pane shows the shape of the record the ledger would have kept, for illustration. That call happened before the ledger existed, so its real content only survived in the agent's own history.</p>
+    </div>
+  </section>
+
+  <!-- DESIGN -->
+  <section id="design">
+    <span class="eyebrow">How it works</span>
+    <h2>Tap the gateway, never slow it down</h2>
+    <div class="col"><p>When agents reach their models through one LiteLLM proxy, every request and response passes through that one place. The ledger is a small callback inside that proxy. It does almost nothing on the request path, and every expensive step runs later, in a separate process. Select a stage to read what it does.</p></div>
+    <figure class="figure" style="margin:0">
+      <div class="scroll">
+        <svg id="flow" viewBox="0 0 980 360" width="100%" style="min-width:760px" role="img" aria-label="Pipeline from agents through the proxy to the ledger store">
+          <rect class="zone" x="150" y="14" width="500" height="330" rx="10"/>
+          <text class="zone-l" x="164" y="34">PROXY HOST</text>
+          <rect class="zone" x="676" y="14" width="292" height="330" rx="10"/>
+          <text class="zone-l" x="690" y="34">STORE · DIRECTORY, NAS OR SSH</text>
+
+          <path class="flow-line" id="p1" d="M118,90 L190,90"/>
+          <path class="flow-line" d="M330,90 L520,90 L560,90"/>
+          <path class="flow-hot" id="p2" d="M260,116 L260,180"/>
+          <path class="flow-hot" id="p3" d="M330,206 L400,206"/>
+          <path class="flow-hot" id="p4" d="M540,206 L540,250 L470,250 L470,276"/>
+          <path class="flow-hot" id="p5" d="M400,302 L330,302"/>
+          <path class="flow-hot" id="p6" d="M260,328 L260,340 L790,340 L790,292"/>
+          <path class="flow-hot" id="p7" d="M790,236 L790,230"/>
+
+          <g class="node" data-k="agents" tabindex="0"><rect x="14" y="62" width="104" height="56" rx="8"/><text class="t" x="28" y="86">Agents</text><text class="s" x="28" y="104">agents · apps · …</text></g>
+          <g class="node" data-k="proxy" tabindex="0"><rect x="190" y="62" width="140" height="56" rx="8"/><text class="t" x="204" y="86">LiteLLM :4000</text><text class="s" x="204" y="104">routes every call</text></g>
+          <g class="node" data-k="provider" tabindex="0"><rect x="560" y="62" width="84" height="56" rx="8"/><text class="t" x="572" y="86">Model</text><text class="s" x="572" y="104">cloud · local</text></g>
+          <g class="node ledger" data-k="handler" tabindex="0"><rect x="190" y="180" width="140" height="56" rx="8"/><text class="t" x="204" y="204">Ledger handler</text><text class="s" x="204" y="222">0.18 ms, enqueue only</text></g>
+          <g class="node ledger" data-k="writer" tabindex="0"><rect x="400" y="180" width="140" height="56" rx="8"/><text class="t" x="414" y="204">Writer thread</text><text class="s" x="414" y="222">drains once a second</text></g>
+          <g class="node store" data-k="spool" tabindex="0"><rect x="400" y="276" width="140" height="52" rx="8"/><text class="t" x="414" y="298">Spool</text><text class="s" x="414" y="315">0700 · 1 GiB cap</text></g>
+          <g class="node ledger" data-k="ship" tabindex="0"><rect x="190" y="276" width="140" height="52" rx="8"/><text class="t" x="204" y="298">Hourly ship</text><text class="s" x="204" y="315">redact · zstd · verify</text></g>
+          <g class="node store" data-k="store" tabindex="0"><rect x="700" y="236" width="180" height="56" rx="8"/><text class="t" x="714" y="260">Ledger store</text><text class="s" x="714" y="278">age + size retention</text></g>
+          <g class="node" data-k="fcl" tabindex="0"><rect x="700" y="174" width="180" height="56" rx="8"/><text class="t" x="714" y="198">fcl</text><text class="s" x="714" y="216">get · find · trace · stats</text></g>
+
+          <g id="packets"></g>
+        </svg>
+      </div>
+      <div class="detail" id="detail" aria-live="polite">
+        <h3>Ledger handler</h3>
+        <p class="muted">Runs inside the proxy after each call. It copies the call's identifiers, caller, token counts, messages and response into a record, serializes it and drops it on a queue. It never reads the provider API key, never touches disk and never raises. Measured cost: 0.18 ms per 151 KB call.</p>
+      </div>
+    </figure>
+  </section>
+
+  <!-- LATENCY -->
+  <section id="latency">
+    <span class="eyebrow">Measured, not assumed</span>
+    <h2>What the ledger adds to a request</h2>
+    <div class="col"><p>We ran identical throwaway proxies side by side on one host, one with the ledger and one without, and sent each the same requests in rotating order. Mock models remove provider noise, so any difference is the proxy's own overhead. The bars show the ledger's extra time per request. Switch between the first design and the final one.</p></div>
+    <figure class="figure" style="margin:0">
+      <div style="display:flex;flex-wrap:wrap;gap:12px;justify-content:space-between;align-items:center">
+        <div class="seg" role="group" aria-label="Design version">
+          <button type="button" id="b-run1" aria-pressed="false">First design</button>
+          <button type="button" id="b-run6" aria-pressed="true">Final design</button>
+        </div>
+        <div class="legend"><span><i style="background:var(--ledger)"></i>p50</span><span><i style="background:color-mix(in srgb,var(--ledger) 60%,transparent)"></i>p95</span><span><i style="background:color-mix(in srgb,var(--ledger) 30%,transparent)"></i>p99</span></div>
+      </div>
+      <div class="scroll"><svg id="lat" viewBox="0 0 900 330" width="100%" style="min-width:640px" role="img" aria-label="Added latency in milliseconds per request type"></svg></div>
+      <figcaption id="latCap">Final design (run 6): extra milliseconds with the ledger, against a proxy running a production-like logging callback. Within noise at p50 and p95 on every path. The one visible cost is the failure p99, the rare request that coincides with the once-a-second batch write.</figcaption>
+    </figure>
+    <div class="steps" aria-label="Handler cost per step">
+      <div class="step"><span>build record</span><b>0.064 ms</b><div class="meter"><i data-w="38"></i></div></div>
+      <div class="step"><span>serialize 151 KB</span><b>0.085 ms</b><div class="meter"><i data-w="50"></i></div></div>
+      <div class="step"><span>enqueue</span><b>0.026 ms</b><div class="meter"><i data-w="15"></i></div></div>
+      <div class="step"><span>a cloud model reply</span><b>seconds</b><div class="meter"><i data-w="100" style="background:var(--base)"></i></div></div>
+    </div>
+  </section>
+
+  <!-- RUNS -->
+  <section id="runs">
+    <span class="eyebrow">Six benchmark runs</span>
+    <h2>How the design got here</h2>
+    <div class="col"><p>The first version looked fine on paper and failed the measurement. Each run below either exposed a cost or proved a fix.</p></div>
+    <div class="runs">
+      <div class="run"><span class="n">Run 1</span><div class="v"><span class="chip bad">+33 ms p50 on large calls</span><b>Redaction inside the proxy was the cost.</b><p class="muted">Serializing a 151 KB record took 0.026 ms. The secret-redaction regexes took 21.9 ms, and Python's regex engine holds the interpreter lock, so even a background thread stalled the proxy. Redaction moved to the hourly ship job, a separate process.</p></div></div>
+      <div class="run"><span class="n">Run 2</span><div class="v"><span class="chip void">discarded</span><b>The benchmark measured the wrong processes.</b><p class="muted">Run 1's proxies had not shut down, so two arms of run 2 talked to old servers. The script now stops proxies by port and refuses to start if a port is busy.</p></div></div>
+      <div class="run"><span class="n">Run 3</span><div class="v"><span class="chip bad">+19 ms on failures</span><b>Success paths flat, error replies slower.</b><p class="muted">LiteLLM waits for logging callbacks before it sends an error response, so this is the path that shows any delay.</p></div></div>
+      <div class="run"><span class="n">Runs 4–5</span><div class="v"><span class="chip void">diagnosis</span><b>Not the handler, not "any second callback".</b><p class="muted">A control proxy with two ordinary callbacks added about 1 ms. Timing inside the real proxy put the handler at 0.18 ms. The remaining suspect: waking the writer thread on every call made it fight for the interpreter lock while the error reply was being built.</p></div></div>
+      <div class="run"><span class="n">Run 6</span><div class="v"><span class="chip good">within noise at p50 / p95</span><b>The writer wakes on a timer instead.</b><p class="muted">Calls only enqueue; the writer drains everything once a second. The failure penalty disappeared at p50 and p95, which confirmed the diagnosis.</p></div></div>
+    </div>
+  </section>
+
+  <!-- STORAGE -->
+  <section id="storage">
+    <span class="eyebrow">Sized from real traffic</span>
+    <h2>Six months fits easily under the cap</h2>
+    <div class="col"><p>On the agent deployment it was built for, the proxy handled 4 to 1,557 requests a day, and one agent sent 95 % of all prompt tokens. Agents resend their whole conversation every turn, which sounds expensive, but compressed full records stay small. Estimates use 3.32 bytes per token, measured on that agent's own text, and per-record zstd ratios measured on real content. Hourly batches with zstd -19 should come in lower still.</p></div>
+    <figure class="figure" style="margin:0">
+      <div class="gauge">
+        <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px"><b>Example policy: 180 days, every day as busy as the busiest seen</b><span class="mono">≈ 3.7 GB of 10 GiB</span></div>
+        <div class="gtrack"><div class="gfill" data-w="34.5"></div><div class="gcap" style="left:calc(100% - 2px)"></div></div>
+        <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-top:8px"><b>180 days at a typical day</b><span class="mono">≈ 0.14 GB</span></div>
+        <div class="gtrack"><div class="gfill alt" data-w="1.4"></div></div>
+        <div class="gscale"><span>0</span><span>2.5 GiB</span><span>5 GiB</span><span>7.5 GiB</span><span>10 GiB cap</span></div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>What</th><th>Typical day</th><th>Busiest day</th></tr></thead>
+          <tbody>
+            <tr><td>Full request + response, uncompressed</td><td class="num">4.2 MB</td><td class="num">106 MB</td></tr>
+            <tr><td>Same, compressed per record (zstd)</td><td class="num">0.8 MB</td><td class="num">20.5 MB</td></tr>
+            <tr><td>End-to-end self-test file</td><td class="num" colspan="2">524 B raw → 289 B shipped</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <figcaption>With the example policy the store keeps 180 days and never more than 10 GiB. A daily job deletes the oldest days first and writes every deletion to a log in the store. Today's records are never deleted.</figcaption>
+    </figure>
+  </section>
+
+  <!-- SAFETY -->
+  <section id="safety">
+    <span class="eyebrow">Each one has a test that fails without it</span>
+    <h2>What the ledger guarantees</h2>
+    <div class="grid2">
+      <div>
+        <div class="g"><svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><circle class="ring" cx="12" cy="12" r="10"/><path class="check" d="M7 12.5l3.2 3.2L17 9"/></svg><b>Logging can never break a request</b><p>A full queue or a full spool drops the record and counts it. Every error is caught. Drop counts reach your notifiers so a gap is visible.</p></div>
+        <div class="g"><svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><circle class="ring" cx="12" cy="12" r="10"/><path class="check" d="M7 12.5l3.2 3.2L17 9"/></svg><b>Provider keys are never recorded</b><p>LiteLLM hands every callback the raw upstream API key. The record is built field by field and never reads it.</p></div>
+        <div class="g"><svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><circle class="ring" cx="12" cy="12" r="10"/><path class="check" d="M7 12.5l3.2 3.2L17 9"/></svg><b>Agents cannot switch it off</b><p>A client could send <code>"no-log": true</code> to skip every logger. <code>global_disable_no_log_param</code> closes that, and the record notes that the client asked.</p></div>
+        <div class="g"><svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><circle class="ring" cx="12" cy="12" r="10"/><path class="check" d="M7 12.5l3.2 3.2L17 9"/></svg><b>Secrets are redacted before data leaves the spool</b><p>Bearer tokens, sk- keys, AWS, GitHub, Slack and Google keys, JWTs, private-key blocks and password assignments become <code>[REDACTED:rule]</code>. Personal details stay, because the content is the forensic record.</p></div>
+      </div>
+      <div>
+        <div class="g"><svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><circle class="ring" cx="12" cy="12" r="10"/><path class="check" d="M7 12.5l3.2 3.2L17 9"/></svg><b>Nothing is deleted until the copy is proven</b><p>A spool file is removed only after its compressed copy's sha256 matches in the store. A mismatch keeps everything for the next run.</p></div>
+        <div class="g"><svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><circle class="ring" cx="12" cy="12" r="10"/><path class="check" d="M7 12.5l3.2 3.2L17 9"/></svg><b>Shipped files are never overwritten</b><p>If a file of the same name already exists with different content, the new one gets a hash suffix instead.</p></div>
+        <div class="g"><svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><circle class="ring" cx="12" cy="12" r="10"/><path class="check" d="M7 12.5l3.2 3.2L17 9"/></svg><b>The root disk stays safe</b><p>By default the writer refuses a spool on the root filesystem. A full root disk takes databases down with it.</p></div>
+        <div class="g"><svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><circle class="ring" cx="12" cy="12" r="10"/><path class="check" d="M7 12.5l3.2 3.2L17 9"/></svg><b>Private by default</b><p>Spool and store directories are 0700 and files 0600. Nothing is served over HTTP and no cloud service is involved.</p></div>
+      </div>
+    </div>
+    <p class="muted" style="font-size:14px">114 tests. A mutation check breaks 26 guarantees in the source one at a time; the tests catch all 26. An end-to-end run against a real NAS shipped, verified, read back and expired a test record.</p>
+  </section>
+
+  <!-- NEXT -->
+  <section id="next">
+    <span class="eyebrow">Get started</span>
+    <h2>Four steps</h2>
+    <div class="next">
+      <p><b>Install with</b> <code>pipx install git+https://github.com/lealvona/litellm-content-ledger</code>. Enabling the callback needs one proxy restart.</p>
+      <ol class="roll">
+        <li><code>content-ledger install-callback /path/to/litellm-config-dir</code></li>
+        <li>Add <code>content_ledger.proxy_handler_instance</code> to <code>callbacks</code> and set <code>global_disable_no_log_param: true</code>.</li>
+        <li>Copy <code>examples/profile.toml</code> to <code>~/.config/content-ledger/profile.toml</code> and set the store and retention.</li>
+        <li>Restart the proxy and enable the ship, retain and health timers from <code>deploy/systemd</code>.</li>
+      </ol>
+      <p class="muted">Rollback is one line: remove the callback and restart. Have your agents send <code>x-litellm-session-id</code> so <code>fcl trace</code> can replay a whole conversation instead of single calls.</p>
+    </div>
+  </section>
+
+  <footer>
+    <span>litellm-content-ledger</span>
+    <span>MIT licence</span>
+    <span>LiteLLM 1.92.0 · measured 2026-10-03</span>
+  </footer>
+</div>
+
+<script>
+(function () {
+  var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (!reduce) document.documentElement.classList.add("anim");
+
+  /* ---------- incident: track fill and counters ---------- */
+  var fill = document.getElementById("trackFill");
+  function countUp(el, to, ms) {
+    var t0 = null;
+    function step(t) {
+      if (!t0) t0 = t;
+      var p = Math.min(1, (t - t0) / ms);
+      el.textContent = Math.round(to * (1 - Math.pow(1 - p, 3))).toLocaleString("en-US");
+      if (p < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
+  if (!reduce) {
+    fill.style.transition = "none";
+    fill.style.width = "0%";
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () {
+        fill.style.transition = "width 2.6s cubic-bezier(.3,.7,.3,1)";
+        fill.style.width = "100%";
+      });
+    });
+    document.querySelectorAll("[data-count]").forEach(function (el) { countUp(el, +el.dataset.count, 2400); });
+  }
+
+  /* ---------- replay the lookup ---------- */
+  var out = document.getElementById("replayOut");
+  var full = out.innerHTML;
+  var state = document.getElementById("replayState");
+  var lines = full.split("\n");
+  document.getElementById("replayBtn").addEventListener("click", function () {
+    if (reduce) { out.innerHTML = full; state.textContent = "found"; return; }
+    out.innerHTML = "";
+    state.textContent = "searching…";
+    var i = 0;
+    (function next() {
+      if (i >= lines.length) { state.textContent = "found in 2026/10/03/08"; return; }
+      out.innerHTML = lines.slice(0, i + 1).join("\n");
+      i += 1;
+      setTimeout(next, i === 1 ? 650 : 170);
+    })();
+  });
+
+  /* ---------- pipeline: details and moving packets ---------- */
+  var info = {
+    agents: ["Agents", "Any OpenAI-style client of the proxy. They change nothing. One optional header, x-litellm-session-id, lets a whole conversation be followed."],
+    proxy: ["LiteLLM :4000", "The single gateway to cloud and local models. The ledger is one more callback beside whatever you already run there."],
+    provider: ["Model", "Cloud providers and local model servers. The response comes back through the proxy, which is why the proxy is the right place to record it."],
+    handler: ["Ledger handler", "Runs inside the proxy after each call. It copies the call's identifiers, caller, token counts, messages and response into a record, serializes it and drops it on a queue. It never reads the provider API key, never touches disk and never raises. Measured cost: 0.18 ms per 151 KB call."],
+    writer: ["Writer thread", "Wakes once a second and appends everything queued to an hourly file. Waking it per call cost error replies up to 19 ms, so it batches. If the queue passes 64 MiB, new records are dropped and counted rather than slowing anything down."],
+    spool: ["Spool", "A private 0700 directory on a data disk, capped (1 GiB by default). Records wait here, unredacted, for at most about 75 minutes (the rest of their hour, a 10-minute grace, then the :15 ship). The writer refuses to use the root disk."],
+    ship: ["Hourly ship", "A separate process, so its CPU work never touches the proxy. For each closed hour: redact secrets, compress with zstd -19, copy to the store (a directory, a mounted share, or rsync over ssh), compare sha256 at the far end, and only then delete the spool copy."],
+    store: ["Ledger store", "Any directory: local, a mounted NAS share, or a host reached over ssh. Owner-only. A daily job applies the age and size limits from your profile, deletes oldest days first and logs each deletion."],
+    fcl: ["fcl", "The search tool. fcl get finds one call by id, fcl find filters by time, model, caller or text, fcl trace replays a conversation in order, fcl stats reports volume. It reads the spool and the store."]
+  };
+  var detail = document.getElementById("detail");
+  var nodes = document.querySelectorAll("#flow .node[data-k]");
+  function select(k) {
+    if (!info[k]) return;
+    nodes.forEach(function (n) { n.classList.toggle("sel", n.dataset.k === k); });
+    detail.innerHTML = "<h3>" + info[k][0] + "</h3><p class=\"muted\">" + info[k][1] + "</p>";
+  }
+  nodes.forEach(function (n) {
+    n.addEventListener("click", function () { select(n.dataset.k); });
+    n.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); select(n.dataset.k); } });
+  });
+  select("handler");
+
+  if (!reduce) {
+    var svgNS = "http://www.w3.org/2000/svg";
+    var g = document.getElementById("packets");
+    var routes = [
+      { d: "M118,90 L190,90 L330,90 L560,90 L330,90 L260,90 L260,180", cls: "", dur: 3.4 },
+      { d: "M330,206 L400,206 L540,206 L540,250 L470,250 L470,276", cls: "c", dur: 2.8 },
+      { d: "M400,302 L330,302 L260,302 L260,340 L790,340 L790,292", cls: "c", dur: 3.6 }
+    ];
+    routes.forEach(function (r, i) {
+      for (var k = 0; k < 2; k++) {
+        var c = document.createElementNS(svgNS, "circle");
+        c.setAttribute("r", "5");
+        c.setAttribute("class", "packet " + r.cls);
+        var a = document.createElementNS(svgNS, "animateMotion");
+        a.setAttribute("dur", r.dur + "s");
+        a.setAttribute("repeatCount", "indefinite");
+        a.setAttribute("path", r.d);
+        a.setAttribute("begin", (i * 0.7 + k * r.dur / 2) + "s");
+        c.appendChild(a);
+        g.appendChild(c);
+      }
+    });
+  }
+
+  /* ---------- latency chart ---------- */
+  var cases = ["Small call", "Large call", "Large, streamed", "Large, failed"];
+  var data = {
+    run1: { cap: "First design (run 1, redaction inside the proxy): extra milliseconds against a proxy with no callbacks. Large calls paid 33 ms at p50; failed calls paid more than 90 ms, because LiteLLM waits for callbacks before replying with an error.",
+            v: [[0.71, 0.94, 0.57], [32.69, 52.55, 74.54], [13.4, 68.75, 67.52], [93.12, 90.72, 94.1]] },
+    run6: { cap: "Final design (run 6): extra milliseconds with the ledger, against a proxy running a production-like logging callback. Within noise at p50 and p95 on every path. The one visible cost is the failure p99, the rare request that coincides with the once-a-second batch write.",
+            v: [[0.0, -0.49, -0.48], [0.16, -0.54, -0.27], [-0.49, -4.66, -3.92], [-2.02, 0.32, 19.03]] }
+  };
+  var svg = document.getElementById("lat");
+  var W = 900, H = 330, L = 56, R = 16, T = 18, B = 46;
+  var yMin = -10, yMax = 100;
+  function y(v) { return T + (yMax - v) / (yMax - yMin) * (H - T - B); }
+  var NS = "http://www.w3.org/2000/svg";
+  function el(name, attrs, text) {
+    var e = document.createElementNS(NS, name);
+    for (var k in attrs) e.setAttribute(k, attrs[k]);
+    if (text != null) e.textContent = text;
+    svg.appendChild(e);
+    return e;
+  }
+  [-10, 0, 25, 50, 75, 100].forEach(function (t) {
+    el("line", { x1: L, x2: W - R, y1: y(t), y2: y(t), class: t === 0 ? "axis-zero" : "axis" });
+    el("text", { x: L - 8, y: y(t) + 4, "text-anchor": "end", class: "tick" }, (t > 0 ? "+" : "") + t + " ms");
+  });
+  var groupW = (W - L - R) / cases.length, barW = Math.min(34, groupW / 5);
+  var shades = [1, 0.6, 0.3];
+  var bars = [], vals = [];
+  cases.forEach(function (c, i) {
+    var gx = L + groupW * i + groupW / 2;
+    el("text", { x: gx, y: H - 18, "text-anchor": "middle", class: "cat" }, c);
+    for (var q = 0; q < 3; q++) {
+      var x = gx + (q - 1.5) * (barW + 6) + 3;
+      var r = el("rect", { x: x, width: barW, y: y(0), height: 0, rx: 2, class: "bar", fill: "var(--ledger)", "fill-opacity": shades[q] });
+      var t = el("text", { x: x + barW / 2, y: y(0) - 6, "text-anchor": "middle", class: "val" }, "");
+      bars.push(r); vals.push(t);
+    }
+  });
+  var cap = document.getElementById("latCap");
+  function show(key, animate) {
+    var d = data[key];
+    cap.textContent = d.cap;
+    d.v.forEach(function (row, i) {
+      row.forEach(function (v, q) {
+        var r = bars[i * 3 + q], t = vals[i * 3 + q];
+        var top = y(Math.max(v, 0)), h = Math.abs(y(v) - y(0));
+        if (!animate) r.style.transition = "none";
+        r.setAttribute("y", top);
+        r.setAttribute("height", Math.max(h, 1));
+        t.setAttribute("y", v >= 0 ? top - 6 : y(v) + 14);
+        t.textContent = (v > 0 ? "+" : "") + v.toFixed(v >= 10 || v <= -10 ? 0 : 1);
+        if (!animate) { r.getBoundingClientRect(); r.style.transition = ""; }
+      });
+    });
+    document.getElementById("b-run1").setAttribute("aria-pressed", key === "run1");
+    document.getElementById("b-run6").setAttribute("aria-pressed", key === "run6");
+  }
+  show("run6", false);
+  document.getElementById("b-run1").addEventListener("click", function () { show("run1", !reduce); });
+  document.getElementById("b-run6").addEventListener("click", function () { show("run6", !reduce); });
+
+  /* ---------- meters and gauges grow when seen ---------- */
+  function grow(sel) {
+    document.querySelectorAll(sel).forEach(function (e) { e.style.width = e.dataset.w + "%"; });
+  }
+  if (reduce || !("IntersectionObserver" in window)) {
+    grow(".meter i"); grow(".gfill");
+  } else {
+    grow(".meter i"); grow(".gfill");
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) {
+        if (!en.isIntersecting) return;
+        en.target.querySelectorAll(".meter i, .gfill").forEach(function (e) {
+          e.style.transition = "none"; e.style.width = "0%"; e.getBoundingClientRect();
+          e.style.transition = ""; e.style.width = e.dataset.w + "%";
+        });
+        io.unobserve(en.target);
+      });
+    }, { threshold: 0.4 });
+    document.querySelectorAll(".steps, .gauge").forEach(function (s) { io.observe(s); });
+  }
+
+  /* ---------- rail highlight ---------- */
+  var links = document.querySelectorAll(".rail a");
+  if ("IntersectionObserver" in window) {
+    var so = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) {
+        if (en.isIntersecting) links.forEach(function (a) { a.classList.toggle("on", a.getAttribute("href") === "#" + en.target.id); });
+      });
+    }, { rootMargin: "-40% 0px -55% 0px" });
+    document.querySelectorAll("section[id]").forEach(function (s) { so.observe(s); });
+  }
+})();
+</script>
